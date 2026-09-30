@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Как устроена линия домового интернета</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.6;
+    padding: 24px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; color: #38bdf8; }
+  h2 {
+    font-size: 20px; margin: 32px 0 12px; color: #7dd3fc;
+    border-left: 4px solid #38bdf8; padding-left: 12px;
+  }
+  h3 { font-size: 16px; margin: 20px 0 8px; color: #bae6fd; }
+  p, li { color: #cbd5e1; font-size: 15px; }
+  ul { margin-left: 20px; margin-top: 6px; }
+  li { margin-bottom: 6px; }
+  .subtitle { color: #94a3b8; margin-bottom: 24px; }
+
+  /* Шкаф */
+  .cabinet {
+    background: linear-gradient(180deg, #1e293b, #172033);
+    border: 3px solid #334155;
+    border-radius: 14px;
+    padding: 20px;
+    margin: 20px 0;
+    position: relative;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+  }
+  .cabinet::before {
+    content: "🏢 ДОМОВОЙ ШКАФ";
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: #0f172a;
+    color: #7dd3fc;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 10px;
+    border: 2px solid #334155;
+    border-radius: 6px;
+  }
+  .cabinet-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    padding-top: 8px;
+  }
+  .cabinet-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: 6px 0;
+  }
+
+  .node {
+    background: #334155;
+    border: 2px solid #475569;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    font-size: 12px;
+    min-width: 120px;
+    transition: all 0.3s;
+    position: relative;
+  }
+  .node:hover {
+    border-color: #38bdf8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(56,189,248,0.3);
+  }
+  .node .icon { font-size: 20px; display: block; margin-bottom: 3px; }
+  .node .label { font-weight: 600; color: #f1f5f9; }
+  .node .desc { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+  .node.static { border-color: #22c55e; }
+  .node.static:hover { border-color: #4ade80; box-shadow: 0 4px 20px rgba(34,197,94,0.3); }
+  .node.active { border-color: #f59e0b; }
+  .node.active:hover { border-color: #fbbf24; box-shadow: 0 4px 20px rgba(245,158,11,0.3); }
+  .node.passive { border-color: #64748b; }
+  .node.optical { border-color: #ec4899; }
+  .node.optical:hover { border-color: #f472b6; box-shadow: 0 4px 20px rgba(236,72,153,0.3); }
+
+  .link {
+    position: relative;
+    height: 3px;
+    background: #475569;
+    border-radius: 2px;
+    min-width: 30px;
+    flex: 1;
+    max-width: 90px;
+  }
+  .link.static-line {
+    background: repeating-linear-gradient(90deg, #22c55e 0, #22c55e 8px, transparent 8px, transparent 14px);
+    height: 4px;
+  }
+  .link.active-line {
+    background: repeating-linear-gradient(90deg, #f59e0b 0, #f59e0b 8px, transparent 8px, transparent 14px);
+    height: 4px;
+  }
+  .link.optical {
+    background: linear-gradient(90deg, #ec4899, #f472b6);
+    height: 4px;
+  }
+
+  .signal {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 10px #38bdf8;
+    animation: moveSignal 2.5s linear infinite;
+  }
+  @keyframes moveSignal {
+    0% { left: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { left: calc(100% - 8px); opacity: 0; }
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    margin: 20px 0; padding: 16px;
+    background: #1e293b; border-radius: 10px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend-swatch { width: 28px; height: 4px; border-radius: 2px; }
+  .swatch-static { background: repeating-linear-gradient(90deg, #22c55e 0, #22c55e 8px, transparent 8px, transparent 14px); }
+  .swatch-active { background: repeating-linear-gradient(90deg, #f59e0b 0, #f59e0b 8px, transparent 8px, transparent 14px); }
+  .swatch-optical { background: linear-gradient(90deg, #ec4899, #f472b6); }
+  .swatch-passive { background: #475569; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .card {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 18px;
+    border-top: 3px solid #38bdf8;
+  }
+  .card.green { border-top-color: #22c55e; }
+  .card.orange { border-top-color: #f59e0b; }
+  .card.pink { border-top-color: #ec4899; }
+  .card h4 { color: #f1f5f9; margin-bottom: 8px; font-size: 15px; }
+  .card p { font-size: 13px; color: #94a3b8; }
+
+  code {
+    background: #0f172a; padding: 2px 6px; border-radius: 4px;
+    font-size: 13px; color: #7dd3fc; font-family: "Consolas", monospace;
+  }
+  .highlight {
+    background: rgba(56,189,248,0.1);
+    border-left: 3px solid #38bdf8;
+    padding: 12px 16px; border-radius: 6px;
+    margin: 16px 0; font-size: 14px;
+  }
+  .highlight.warn {
+    background: rgba(245,158,11,0.1);
+    border-left-color: #f59e0b;
+  }
+  .highlight.pink {
+    background: rgba(236,72,153,0.1);
+    border-left-color: #ec4899;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge.static { background: #22c55e; color: #052e16; }
+  .badge.dynamic { background: #f59e0b; color: #451a03; }
+  .badge.optical { background: #ec4899; color: #500724; }
+
+  footer {
+    margin-top: 40px; padding-top: 20px;
+    border-top: 1px solid #334155;
+    text-align: center; color: #64748b; font-size: 13px;
+  }
+
+  @media (max-width: 700px) {
+    .node { min-width: 90px; padding: 8px; font-size: 11px; }
+    .link { max-width: 30px; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🌐 Как устроена линия «домового» интернета</h1>
+  <p class="subtitle">Статичные и динамические участки · домовой шкаф · оптика с улицы</p>
+
+  <!-- ===== 1. ПОЛНАЯ СХЕМА СО ШКАФОМ ===== -->
+  <h2>1. Полная схема (с домовым шкафом)</h2>
+
+  <div class="diagram" style="background:transparent; padding:0;">
+    <!-- Улица -->
+    <div class="cabinet-row">
+      <div class="node optical">
+        <span class="icon">🌐</span>
+        <div class="label">Улица</div>
+        <div class="desc">оптический кабель, N волокон</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; color:#ec4899; font-size:13px; margin:6px 0;">
+      ↓ оптика (несколько волокон в одном кабеле)
+    </div>
+
+    <!-- ШКАФ -->
+    <div class="cabinet">
+      <div class="cabinet-row">
+        <div class="node optical">
+          <span class="icon">🧵</span>
+          <div class="label">Оптический кросс</div>
+          <div class="desc">ODF · волокна → порты</div>
+        </div>
+        <div class="link optical" style="max-width:60px;">
+          <div class="signal" style="background:#ec4899; box-shadow:0 0 10px #ec4899;"></div>
+        </div>
+        <div class="node optical">
+          <span class="icon">🔄</span>
+          <div class="label">ONU / медиаконвертер</div>
+          <div class="desc">оптика → медь</div>
+        </div>
+        <div class="link" style="max-width:60px;">
+          <div class="signal" style="background:#38bdf8; box-shadow:0 0 10px #38bdf8;"></div>
+        </div>
+        <div class="node active">
+          <span class="icon">🔀</span>
+          <div class="label">Коммутатор</div>
+          <div class="desc">uplink + порты абонентов</div>
+        </div>
+      </div>
+
+      <!-- Динамика: коммутатор → патч-панель -->
+      <div class="cabinet-row" style="margin-top:18px;">
+        <div class="node active">
+          <span class="icon">🔌</span>
+          <div class="label">Порт коммутатора</div>
+          <div class="desc">абонентский порт</div>
+        </div>
+        <div class="link active-line" style="max-width:120px;">
+          <div class="signal" style="background:#f59e0b; box-shadow:0 0 10px #f59e0b;"></div>
+        </div>
+        <div class="node static">
+          <span class="icon">🧩</span>
+          <div class="label">Патч-панель</div>
+          <div class="desc">домовые линии</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:14px; font-size:12px; color:#f59e0b;">
+        ↑ патч-корд (динамика): ставится при подключении абонента
+      </div>
+    </div>
+
+    <div style="text-align:center; color:#22c55e; font-size:13px; margin:6px 0;">
+      ↓ статичный кабель в стояке
+    </div>
+
+    <!-- Этаж -->
+    <div class="cabinet-row">
+      <div class="node static">
+        <span class="icon">🧩</span>
+        <div class="label">Патч-панель на этаже</div>
+        <div class="desc">расключение на квартиры</div>
+      </div>
+      <div class="link active-line" style="max-width:80px;">
+        <div class="signal" style="background:#f59e0b; box-shadow:0 0 10px #f59e0b;"></div>
+      </div>
+      <div class="node active">
+        <span class="icon">🏠</span>
+        <div class="label">Квартира</div>
+        <div class="desc">розетка → роутер</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:20px; font-size:12px; color:#64748b;">
+      Розовый — оптика · Зелёный — статика (узел ↔ этаж) · Оранжевый — динамика (подключение абонента)
+    </div>
+  </div>
+
+  <!-- ===== ЛЕГЕНДА ===== -->
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-swatch swatch-static"></div>
+      <span>Статичная линия (узел ↔ этаж)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch swatch-active"></div>
+      <span>Динамика (при подключении)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch swatch-optical"></div>
+      <span>Оптика (внешняя линия)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch swatch-passive"></div>
+      <span>Активное оборудование</span>
+    </div>
+  </div>
+
+  <!-- ===== 2. СТАТИЧНАЯ ЧАСТЬ ===== -->
+  <h2>2. Статичная часть <span class="badge static">STATIC</span></h2>
+  <div class="highlight">
+    Прокладывается <strong>один раз</strong> при монтаже дома. Не меняется при подключении абонентов. Пассивная витая пара.
+  </div>
+  <div class="diagram">
+    <div class="cabinet-row">
+      <div class="node static">
+        <span class="icon">🧩</span>
+        <div class="label">Патч-панель</div>
+        <div class="desc">в домовом узле</div>
+      </div>
+      <div class="link static-line" style="max-width:200px;">
+        <div class="signal" style="background:#22c55e; box-shadow:0 0 10px #22c55e;"></div>
+      </div>
+      <div class="node static">
+        <span class="icon">🧩</span>
+        <div class="label">Патч-панель</div>
+        <div class="desc">на этаже</div>
+      </div>
+    </div>
+    <p style="text-align:center; color:#94a3b8; font-size:13px; margin-top:12px;">
+      Постоянный кабель в стояке · на обоих концах расшит в патч-панели
+    </p>
+  </div>
+
+  <!-- ===== 3. ДИНАМИЧЕСКАЯ ЧАСТЬ ===== -->
+  <h2>3. Динамическая часть <span class="badge dynamic">DYNAMIC</span></h2>
+  <div class="highlight warn">
+    Появляется, когда абонент подключается. Инсталлятор замыкает статичную линию на коммутатор и тянет кабель до квартиры.
+  </div>
+  <div class="cards">
+    <div class="card orange">
+      <h4>🔌 В домовом узле (динамика)</h4>
+      <p>Патч-корд соединяет <strong>абонентский порт коммутатора</strong> ↔ <strong>порт патч-панели</strong> вашей линии. Это «оживляет» статичный кабель.</p>
+    </div>
+    <div class="card orange">
+      <h4>🏠 На этаже (динамика)</h4>
+      <p>От этажной патч-панели тянется кабель до квартиры (если его не было). Подключается в розетку.</p>
+    </div>
+    <div class="card orange">
+      <h4>📶 В квартире</h4>
+      <p>От розетки — патч-корд до роутера/ПК. Логическая активация: PPPoE, DHCP, MAC-привязка.</p>
+    </div>
+  </div>
+
+  <!-- ===== 4. ВНЕШНЯЯ ЛИНИЯ ===== -->
+  <h2>4. Внешняя линия: что приходит с улицы?</h2>
+  <div class="highlight pink">
+    С улицы обычно приходит <strong>один магистральный оптический кабель, внутри которого несколько волокон</strong> (4, 8, 12, 24, 48). Каждое волокно — отдельный физический канал.
+  </div>
+
+  <h3>FTTB с активной оптикой (ваш случай)</h3>
+  <div class="diagram">
+    <div class="cabinet-row">
+      <div class="node optical">
+        <span class="icon">🌐</span>
+        <div class="label">Улица</div>
+        <div class="desc">1 кабель, N волокон</div>
+      </div>
+      <div class="link optical" style="max-width:70px;">
+        <div class="signal" style="background:#ec4899; box-shadow:0 0 10px #ec4899;"></div>
+      </div>
+      <div class="node optical">
+        <span class="icon">🧵</span>
+        <div class="label">Оптический кросс</div>
+        <div class="desc">волокна → порты</div>
+      </div>
+      <div class="link optical" style="max-width:70px;">
+        <div class="signal" style="background:#ec4899; box-shadow:0 0 10px #ec4899;"></div>
+      </div>
+      <div class="node optical">
+        <span class="icon">🔄</span>
+        <div class="label">Медиаконвертер / ONU</div>
+        <div class="desc">по одному на волокно</div>
+      </div>
+      <div class="link" style="max-width:70px;">
+        <div class="signal" style="background:#38bdf8; box-shadow:0 0 10px #38bdf8;"></div>
+      </div>
+      <div class="node active">
+        <span class="icon">🔀</span>
+        <div class="label">Uplink коммутатора</div>
+        <div class="desc">медь</div>
+      </div>
+    </div>
+    <p style="text-align:center; color:#94a3b8; font-size:13px; margin-top:12px;">
+      Сплиттера нет · каждое волокно → свой медиаконвертер → свой uplink-порт
+    </p>
+  </div>
+
+  <h3>GPON (пассивная оптика, если до квартиры оптика)</h3>
+  <div class="diagram">
+    <div class="cabinet-row">
+      <div class="node optical">
+        <span class="icon">🌐</span>
+        <div class="label">Улица</div>
+        <div class="desc">1 волокно (или неск.)</div>
+      </div>
+      <div class="link optical" style="max-width:70px;">
+        <div class="signal" style="background:#ec4899; box-shadow:0 0 10px #ec4899;"></div>
+      </div>
+      <div class="node optical">
+        <span class="icon">🔱</span>
+        <div class="label">Сплиттер</div>
+        <div class="desc">1×8, 1×16, 1×32</div>
+      </div>
+      <div class="link optical" style="max-width:70px;">
+        <div class="signal" style="background:#ec4899; box-shadow:0 0 10px #ec4899;"></div>
+      </div>
+      <div class="node optical">
+        <span class="icon">🏠</span>
+        <div class="label">ONU в квартире</div>
+        <div class="desc">оптика до абонента</div>
+      </div>
+    </div>
+    <p style="text-align:center; color:#94a3b8; font-size:13px; margin-top:12px;">
+      Коммутатора в узле нет · он выше, в агрегации провайдера (OLT)
+    </p>
+  </div>
+
+  <ul>
+    <li><strong>Оптика</strong> → оптический кросс → медиаконвертер/ONU → патч-корд в uplink-порт коммутатора.</li>
+    <li><strong>Медь</strong> (реже) → напрямую в uplink-порт коммутатора.</li>
+    <li>Внешняя линия <strong>не расшивается</strong> в ту же патч-панель, где квартирные линии.</li>
+    <li><strong>Сплиттер</strong> — атрибут PON (GPON/GEPON). В FTTB с активной оптикой его обычно нет.</li>
+  </ul>
+
+  <!-- ===== 5. КЛЮЧЕВАЯ ЛОГИКА ===== -->
+  <h2>5. Ключевая логика</h2>
+  <div class="cards">
+    <div class="card pink">
+      <h4>🧵 Оптический кросс</h4>
+      <p>Точка расшива волокон внешнего кабеля. Волокна → порты кросса.</p>
+    </div>
+    <div class="card pink">
+      <h4>🔄 ONU / медиаконвертер</h4>
+      <p>Преобразует оптику в медь. По одному на волокно (или на пару).</p>
+    </div>
+    <div class="card">
+      <h4>🔀 Коммутатор</h4>
+      <p>Uplink — от ONU/кросса. Абонентские порты — через патч-корды на патч-панель.</p>
+    </div>
+    <div class="card">
+      <h4>🧩 Патч-панель в узле</h4>
+      <p>Точка сбора домовых линий (в квартиры / на этажи).</p>
+    </div>
+    <div class="card green">
+      <h4>📏 Статичная линия</h4>
+      <p>Постоянный кабель узел ↔ этаж. Просто «замыкается» на коммутатор при подключении.</p>
+    </div>
+    <div class="card orange">
+      <h4>⚡ Динамика</h4>
+      <p>Патч-корд «порт коммутатора ↔ порт патч-панели». Ставится при подключении абонента.</p>
+    </div>
+  </div>
+
+  <!-- ===== 6. ПОЛНАЯ ЦЕПОЧКА ===== -->
+  <h2>6. Полная цепочка сигнала</h2>
+  <div class="diagram">
+    <div class="cabinet-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+      <div class="node optical" style="text-align:left;">
+        <strong>1.</strong> 🌐 Провайдер (улица) — оптический кабель, N волокон
+      </div>
+      <div style="text-align:center; color:#ec4899;">↓ оптика</div>
+      <div class="node optical" style="text-align:left;">
+        <strong>2.</strong> 🧵 Оптический кросс (ODF) в шкафу
+      </div>
+      <div style="text-align:center; color:#ec4899;">↓ оптика</div>
+      <div class="node optical" style="text-align:left;">
+        <strong>3.</strong> 🔄 Медиаконвертер / ONU — оптика → медь
+      </div>
+      <div style="text-align:center; color:#38bdf8;">↓ медь (uplink)</div>
+      <div class="node active" style="text-align:left;">
+        <strong>4.</strong> 🔀 Коммутатор — uplink-порт
+      </div>
+      <div style="text-align:center; color:#f59e0b;">↓ патч-корд (динамика)</div>
+      <div class="node static" style="text-align:left;">
+        <strong>5.</strong> 🧩 Патч-панель в домовом узле
+      </div>
+      <div style="text-align:center; color:#22c55e;">↓ статичный кабель в стояке</div>
+      <div class="node static" style="text-align:left;">
+        <strong>6.</strong> 🧩 Патч-панель на этаже
+      </div>
+      <div style="text-align:center; color:#f59e0b;">↓ кабель до квартиры (динамика)</div>
+      <div class="node active" style="text-align:left;">
+        <strong>7.</strong> 🏠 Квартира → роутер
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Схема «домового» интернета (FTTB) · визуализация для понимания топологии
+  </footer>
+
+</div>
+</body>
+</html>
